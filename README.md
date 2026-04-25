@@ -21,3 +21,6 @@ Some species had no images, and for those species I searched for their names onl
 - If API had images for a synonym, I would add it to the `synonyms` dictionary.
   - Make sure the folder you are saving the images in follows the original name, **not** the synonym name
 - Some did not have images for a synonym of a species, so they were left out.
+
+### count.py
+I used this file to create a copy of `bee_counts.csv`, where the GBIF column has the updated counts for each species according to the results I downloaded.
