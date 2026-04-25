@@ -1,24 +1,23 @@
 # NBDC_Public
- 
-## Dependencies
-To install required packages:
-```
-pip install -r requirements.txt
-```
+
+Instead of web scraping, I accessed the GBIF API to extract image URLs for each species
 
 ## Workflow
-Everything is configured to work on Ecdysis, so it will have to be modified
+For GBIF's API, I had to create a URL and fill the search parameters to get results that contained image URLs for each species, somewhat similarly to web scraping.
 
-`make_urls.py` should be run first
-- This makes a URL for each species, writing them to `urls.txt`
+Here is an example of such URL so you can see the result:
+https://api.gbif.org/v1/occurrence/search?scientificName=Andrena+miserabilis&mediaType=StillImage&limit=50&offset=350&basisOfRecord=PRESERVED_SPECIMEN&license=CC0_1_0&taxonKey=7798
+- Using this, I would change the parameters `scientificName` according to the species I was searching for, and I would increment `offset` by 50 to get the next 50 results (each page had 50 results since `limit=50`).
 
-`scrape.py` should be run next
-- This retrieves URLs for every image found for each species, and puts them into the appropriate `<species>.txt` file within the `image_urls` folder
-
-`download.py` should be run next
-- This downloads every image using the URLs within `image_urls` and puts them into their respective species folders
+I would run `main.py` to get the image URLs for each species, which would be saved in the `species_images` folder.
+I would then run `download.py` to get these images and save them to the correct species folder, as usual.
 
 ## Other notes
-The image URLs retrieved from scraping are the small thumbnails found in the table. As such they all have the suffix `_tn`. I assume this will be true for the new website as well. I assume the `_tn` means "tiny" because removing it leads to a much larger image, which we can actually use. `download.py` already removes the `_tn` portion.
-- However, this results from many images being unretrievable: around 2000 of 11000 of the image URLs for Ecdysis led to 404 pages.
-- As such, there may be a better way to retrieve the image URLs during scraping that leads to a higher image yield.
+
+### apiUtils.py
+`excluded_dataset_keys` exists because we were told to exclude the 'iNaturalist' and 'BugGuide' from our search, as they include civilian observations which may not correctly label bees.
+
+Some species had no images, and for those species I searched for their names online to look for *synonyms*, which are slightly different names for the same species of bee.
+- If API had images for a synonym, I would add it to the `synonyms` dictionary.
+  - Make sure the folder you are saving the images in follows the original name, **not** the synonym name
+- Some did not have images for a synonym of a species, so they were left out.

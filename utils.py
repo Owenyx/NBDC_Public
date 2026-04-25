@@ -40,7 +40,7 @@ def get_species(filename='Genus_Species_List.csv', col_name="Species"):
 
 
 def get_local_file_path(species_name: str) -> str:
-    return f"Ecdysis/{species_name}"
+    return f"GBIF/{species_name}"
 
 
 def remove_psithyrus(s):

@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import re
 from requests.adapters import HTTPAdapter
 from datetime import datetime
+import cuid
 
 MAX_WORKERS = 15
 
@@ -25,6 +26,12 @@ headers = {
     "Accept-Language": "en-US,en;q=0.9",
     "Referer": "https://www.google.com/",
 }
+
+# Set True to avoid downloading files that already exist in the save folder
+# However, set False if nothing is saved because some images may share a name but ave different content,
+# such as preview.jpg
+# As such, for best results, delete all existing GBIF files and set this to False
+SKIP_DUPLICATE_FILENAMES = True
 
 
 def is_valid_image(content: bytes) -> bool:
@@ -51,18 +58,10 @@ def safe_filename(url: str):
     return name + ".jpg"
 
 
-def try_download(url):
-    return session.get(url, headers=headers, timeout=60, allow_redirects=True)
-
-
 def download_one(item: Dict[str, str]):
     # Extract species and image URL from item
     species = item["species"]
     url = item["image"].strip() # Remove newline if present, was causing issues before
-
-    # Ecdysis placeholder check
-    if url == 'https://ecdysis.org/images/image-icon.svg':
-        return 'Placeholder encountered'
 
     # Create folder for images if needed
     folder = get_local_file_path(species)
@@ -71,9 +70,16 @@ def download_one(item: Dict[str, str]):
     filename = safe_filename(url)
     filepath = os.path.join(folder, filename)
 
-    # Skip already downloaded files
     if os.path.exists(filepath):
-        return f"Already exists: {filepath}"
+        # File with same name already downloaded
+        if SKIP_DUPLICATE_FILENAMES:
+            # Skip already downloaded files
+            return f"Already exists: {filepath}"
+        else:
+            # Add a CUID to make filepath unique
+            parts = filepath.split('.')
+            parts[-2] += f"_{cuid.cuid()}"
+            filepath = ".".join(parts)
 
     try:
         for attempt in range(3):
@@ -83,21 +89,6 @@ def download_one(item: Dict[str, str]):
             except requests.exceptions.RequestException:
                 if attempt == 2:
                     raise
-
-        # If 404, try capitalized JPG, which accounts for many more images, oddly
-        if resp.status_code == 404:
-            if url.lower().endswith(".jpg"):
-                alt_url = re.sub(r'\.jpg$', '.JPG', url)
-            elif url.lower().endswith(".jpeg"):
-                alt_url = re.sub(r'\.jpeg$', '.JPEG', url)
-            else:
-                alt_url = None
-
-            if alt_url:
-                resp = try_download(alt_url)
-                if resp.status_code == 200:
-                    url = alt_url
-            
 
         if resp.status_code != 200:
             return f"Failed with code {resp.status_code}: {url}"
@@ -138,18 +129,8 @@ def download_images(items: List[Dict[str, str]]):
             log.write('\n\n\n')
 
 
-def remove_tn(url: str) -> str:
-    parts = url.split('.')
-    filename = parts[-2]
-
-    new_name = filename.removesuffix('_tn')
-    parts[-2] = new_name
-
-    return '.'.join(parts)
-
-
 def get_items(species_name: str) -> List[Dict[str, str]]:
-    url_file_path = Path('image_urls') / f'{species_name}.txt'
+    url_file_path = Path('species_images') / f'{species_name}.txt'
 
     if not url_file_path.exists():
         print(url_file_path, 'does not exist')
@@ -157,11 +138,6 @@ def get_items(species_name: str) -> List[Dict[str, str]]:
 
     with open(url_file_path) as f:
         urls = f.readlines()
-
-
-    # Remove _tn at the end of each filename
-    urls = [remove_tn(url) for url in urls]
-
 
     return [{'species': species_name, 'image': url} for url in urls]
 
